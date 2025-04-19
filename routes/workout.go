@@ -3,7 +3,6 @@ package routes
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"net/http"
 	"workout-api/data"
 	"workout-api/models"
 )
@@ -12,24 +11,41 @@ import (
 func RegisterWorkoutRoutes(r *gin.Engine){
 	r.POST("/workouts",createWorkout)
 	r.GET("/workouts",listWorkouts)
+	r.DELETE("/workouts",deleteWorkout)
 }
 func createWorkout(c *gin.Context){
 	var w models.Workout
 	if err := c.ShouldBindBodyWithJSON(&w); err != nil{
-		c.JSON(http.StatusBadRequest, gin.H{"error":err.Error()})
+		c.JSON(400, gin.H{"error":err.Error()})
 		return
 	}
+	
 	w.ID = uuid.New().String()
-	data.Workouts[w.ID] = w
-	c.JSON(http.StatusCreated,w)
+	result := data.DB.Create(&w)
+	if result.Error != nil{
+		erroMessage := result.Error.Error()
+		c.JSON(500,gin.H{"error": erroMessage})
+		return
+	}
 
-
+	c.JSON(201,w)
 }
 
 func listWorkouts(c *gin.Context){
 	workouts := []models.Workout{}
-	for _,v := range data.Workouts{
-		workouts = append(workouts,v)
+	
+	if err := data.DB.Find(&workouts).Error; err!=nil{
+		c.JSON(500,gin.H{"error": err.Error()})
+		return
 	}
-	c.JSON(http.StatusOK,workouts)
+	c.JSON(200,workouts)
+}
+
+func deleteWorkout(c *gin.Context){
+	id := c.Param("id")
+	if err:= data.DB.Delete(&models.Workout{}, "id = ?", id).Error; err != nil{
+		c.JSON(500,gin.H{"Error": err.Error()})
+
+	}
+	c.JSON(200,gin.H{"message":"Deleted"})
 }
